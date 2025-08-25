@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI PDF Summarizer  — with Citations</title>
+
+  <!-- pdf.js for text extraction -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+  <!-- jsPDF for “Download as PDF” -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    :root{
+      --bg: #0b1020;
+      --panel: #0f1530;
+      --card: #121a3a;
+      --card-2: #151d45;
+      --border: rgba(255,255,255,0.08);
+      --text: #e8ecff;
+      --muted:#a8b0d7;
+      --accent: #6e8bff;
+      --accent-2: #7ee7ff;
+      --accent-3: #9bffd6;
+      --shadow: 0 60px 40px rgba(0,0,0,0.35);
+      --pill:#1b2452;
+      --pill-active: linear-gradient(135deg,#6e8bff 0%,#7ee7ff 100%);
+      --mark-bg: rgba(255,237,74,0.25);
+      --mark-br: #ffeb3b;
+    }
+    [data-theme="light"]{
+      --bg:#f5f7ff;
+      --panel:#eef2ff;
+      --card:#ffffff;
+      --card-2:#f8f9ff;
+      --border:#E6E8F0;
+      --text:#141a33;
+      --muted:#5a6485;
+      --accent:#4253ff;
+      --accent-2:#00c2ff;
+      --accent-3:#00e2a1;
+      --shadow:0 40px 65px rgba(0, 157, 255, 0.08);
+      --pill:#eef1ff;
+      --pill-active: linear-gradient(135deg,#4253ff 0%,#00c2ff 100%);
+      --mark-bg: #fff3a3;
+      --mark-br: #ffe066;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body {
+      margin:0;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, var(--panel), transparent 60%),
+        radial-gradient(1200px 600px at 110% 10%, var(--panel), transparent 60%),
+        var(--bg);
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+      line-height:1.5;
+    }
+    header{
+      position:sticky; top:0; z-index:50;
+      backdrop-filter:saturate(1.1) blur(8px);
+      background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+      border-bottom:1px solid var(--border);
+    }
+    .nav{
+      max-width:1200px; margin:0 auto; padding:0.9rem 1rem;
+      display:flex; align-items:center; justify-content:space-between; gap:1rem;
+    }
+    .brand{display:flex; align-items:center; gap:0.7rem; font-weight:700; letter-spacing:0.2px}
+    .logo{
+      width:36px; height:36px; border-radius:12px;
+      background:var(--pill-active);
+      box-shadow: var(--shadow);
+    }
+    .navlinks{display:flex; gap:0.75rem; flex-wrap:wrap}
+    .navlinks a{
+      padding:0.45rem 0.85rem; border-radius:999px; text-decoration:none; color:var(--text);
+      background:var(--pill); border:1px solid var(--border);
+      transition:transform .15s ease, box-shadow .15s ease;
+      font-size:0.92rem; cursor:pointer;
+    }
+    .navlinks a:hover{ transform:translateY(-1px); box-shadow: var(--shadow); }
+    .right-tools{display:flex; align-items:center; gap:0.6rem}
+    .btn-small{
+      padding:0.45rem 0.75rem; border-radius:10px; border:1px solid var(--border);
+      background:var(--card); color:var(--text); cursor:pointer;
+    }
+
+    .container{ max-width:1100px; margin:2rem auto; padding:0 1rem; }
+    .hero{
+      margin-bottom:1rem; display:grid; gap:1rem; grid-template-columns: 1.1fr 0.9fr;
+    }
+    @media(max-width:980px){ .hero{grid-template-columns:1fr;} }
+    .upload-card, .output-card{
+      background:linear-gradient(180deg,var(--card),var(--card-2));
+      border:1px solid var(--border); border-radius:18px; padding:1rem 1rem;
+      box-shadow: var(--shadow);
+    }
+    .upload-box{
+      border:2px dashed var(--border); border-radius:14px; padding:1.3rem; text-align:center;
+      background:rgba(0,0,0,0.02);
+    }
+    input[type="file"]{ display:block; margin: 0 auto 0.5rem auto; }
+    .hint{ color:var(--muted); font-size:0.9rem }
+
+    .tabs{ display:flex; gap:0.6rem; flex-wrap:wrap; margin:0.8rem 0; }
+    .tabs button{
+      padding:0.55rem 0.95rem; border:none; border-radius:999px; cursor:pointer;
+      background:var(--pill); color:var(--text); border:1px solid var(--border);
+      transition: all .15s ease;
+    }
+    .tabs button.active{
+      background:var(--pill-active); color:#fff; border-color:transparent;
+      box-shadow: var(--shadow);
+    }
+
+    .controls{ display:flex; gap:0.6rem; flex-wrap:wrap; margin:0.6rem 0 0.2rem; }
+    .controls input[type="text"], .controls select {
+      padding:0.6rem 0.8rem; border:1px solid var(--border); border-radius:12px;
+      background:var(--card-2); color:var(--text); min-width:230px;
+    }
+    .btn, .btn-ghost{
+      padding:0.6rem 0.95rem; border-radius:12px; border:1px solid var(--border); cursor:pointer;
+      transition: transform .12s ease, box-shadow .12s ease, background .12s ease, opacity .12s ease;
+    }
+    .btn{ background:var(--pill-active); color:#fff; border-color:transparent; }
+    .btn:hover{ transform:translateY(-1px); box-shadow: var(--shadow); }
+    .btn-ghost{ background:var(--card-2); color:var(--text); }
+    .btn-ghost:hover{ opacity:0.9 }
+
+    .toolbar{ display:flex; gap:0.5rem; flex-wrap:wrap; margin:0.6rem 0; }
+    .results{
+      min-height:260px; padding:1rem; border:1px solid var(--border); border-radius:14px;
+      background:var(--card-2); white-space:pre-wrap; overflow-wrap:anywhere;
+    }
+    .meta{ color:var(--muted); font-size:0.9rem; margin-top:0.3rem }
+    mark{ background:var(--mark-bg); border-bottom:2px solid var(--mark-br); border-radius:4px; padding:0 2px; }
+
+    .features{ margin-top:2rem; }
+    .features-grid{ display:grid; gap:1rem; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); }
+    .feature-card{ background:linear-gradient(180deg,var(--card),var(--card-2)); border:1px solid var(--border);
+      border-radius:16px; padding:1rem; box-shadow: var(--shadow); cursor:pointer; }
+    .feature-card:hover{ transform: translateY(-2px); }
+    .feature-card .icon{ font-size:1.6rem; margin-bottom:0.5rem; }
+
+    footer{ max-width:1100px; margin:2rem auto 2.5rem; padding:0 1rem; color:var(--muted); text-align:center; }
+  </style>
+</head>
+<body>
+<header>
+  <div class="nav">
+    <div class="brand">
+      <div class="logo"></div>
+      <div>AI PDF Summarizer</div>
+    </div>
+    <div class="navlinks">
+      <a onclick="setTab('summarize')">Summarize</a>
+      <a onclick="setTab('chat')">Chat PDF</a>
+      <a onclick="setTab('translate')">Translate</a>
+      <a onclick="setTab('search')">Search</a>
+    </div>
+    <div class="right-tools">
+      <button class="btn-small" onclick="toggleTheme()">🌙MODE</button>
+    </div>
+  </div>
+</header>
+
+<div class="container"> 
+  <div class="hero">
+    <!-- Left: Upload + Controls -->
+    <div class="upload-card">
+      <div class="upload-box">
+        <input type="file" id="fileInput" accept="application/pdf" />
+        <div class="hint">Tip: Use a text-based PDF (not scanned images) for best results.</div>
+      </div>
+
+      <div class="tabs">
+        <button class="active" onclick="setTab('convert')">Convert</button>
+        <button onclick="setTab('summarize')">Summarize</button>
+        <button onclick="setTab('chat')">Chat</button>
+        <button onclick="setTab('translate')">Translate</button>
+        <button onclick="setTab('search')">Search</button>
+      </div>
+
+      <div class="controls" id="controls"></div>
+
+      <div class="toolbar">
+        <button class="btn-ghost" onclick="clearOutput()">Clear Output</button>
+        <button class="btn-ghost" onclick="copyOutput()">Copy Output</button>
+        <button class="btn-ghost" onclick="downloadTxt()">Download .txt</button>
+        <button class="btn-ghost" onclick="downloadPdf()">Download PDF</button>
+        <button class="btn-ghost" onclick="exportCitations()">Export Citations</button>
+      </div>
+      <div class="meta" id="metaLine"></div>
+    </div>
+
+    <!-- Right: Output -->
+    <div class="output-card">
+      <div class="results" id="output">Output will appear here...</div>
+    </div>
+  </div>
+
+  <!-- Feature Cards -->
+  <section class="features">
+    <div class="features-grid">
+      <div class="feature-card" onclick="setTab('convert')"><div class="icon">☁️</div><strong>Upload & Extract</strong><div class="hint">Easily drag and drop your PDF files into the PDF Summarizer or input the PDF URL. Future updates will include integration with Google Drive.</div></div>
+      <div class="feature-card" onclick="setTab('summarize')"><div class="icon">🧠</div><strong>Concise Summaries</strong><div class="hint">Preview your PDF files online and read PDFs using AI to better understand the content. AI PDF Reader helps you learn PDFs faster.</div></div>
+      <div class="feature-card" onclick="setTab('chat')"><div class="icon">💬</div><strong>Chat with PDF</strong><div class="hint">Use AI to extract the text content from your PDF files, which can then be copied and downloaded.</div></div>
+      <div class="feature-card" onclick="setTab('translate')"><div class="icon">🌐</div><strong>Translate</strong><div class="hint">Summarize long PDF documents into concise notes, making it easier to understand complex reports, research papers, or eBooks.</div></div>
+      <div class="feature-card" onclick="setTab('search')"><div class="icon">🔎</div><strong>Smart Search</strong><div class="hint">Ask questions and interact with your PDFs in real time using AI-powered chat, so you can get instant answers from your documents.</div></div>
+      <div class="feature-card" onclick="setTab('convert')"><div class="icon">⚡</div><strong>Fast & Private</strong><div class="hint">Translate your PDF files into multiple languages instantly using AI translation tools, keeping formatting intact where possible.</div></div>
+    </div>
+  </section>
+</div>
+
+<footer>© 2025 Hackathon Team Code_Rangers | Demo Only</footer>
+
+<script>
+/* ================== STATE ================== */
+let pdfText = "";
+let activeTab = "convert";
+
+/* Page-wise storage for citations */
+let PAGE_TEXTS = [];          // [pageText...]
+let PAGE_SENTENCES = [];      // [[sentences on page 1], [page 2], ...]
+let SENTENCE_PAGE_MAP = {};   // normalized sentence -> pageNumber (1-based)
+let CURRENT_CITATIONS = [];   // [{sentence, page}] from last action
+
+/* Translation endpoints (CORS-friendly first) */
+const TRANSLATE_ENDPOINTS = [
+  "https://translate.astian.org/translate",
+  "https://libretranslate.de/translate"
+];
+
+/* Language choices */
+const LANGS = [
+  {code:"hi", name:"Hindi"},
+  {code:"es", name:"Spanish"},
+  {code:"fr", name:"French"},
+  {code:"de", name:"German"},
+  {code:"zh", name:"Chinese"},
+  {code:"ja", name:"Japanese"},
+  {code:"ru", name:"Russian"},
+  {code:"pt", name:"Portuguese"},
+  {code:"ar", name:"Arabic"}
+];
+
+/* For Chat: TF-IDF vectors */
+let SENTENCES = [];
+let IDF = {};
+let SENT_VECS = [];
+
+/* ================== UI SETUP ================== */
+function toggleTheme(){
+  const html = document.documentElement;
+  html.dataset.theme = html.dataset.theme === 'light' ? 'dark' : 'light';
+}
+function setTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+  const btn = document.querySelector(`.tabs button[onclick="setTab('${tab}')"]`);
+  if (btn) btn.classList.add('active');
+
+  const controls = document.getElementById('controls');
+  controls.innerHTML = "";
+
+  if (tab === "summarize") {
+    controls.innerHTML = `
+      <button class="btn" onclick="summarizeText()">Generate Summary</button>
+      <select id="sumCount">
+        <option value="5">5 sentences</option>
+        <option value="8">8 sentences</option>
+        <option value="12">12 sentences</option>
+      </select>
+      <button class="btn-ghost" onclick="outlineText()">Make Outline</button>
+    `;
+  }
+
+  if (tab === "chat") {
+    controls.innerHTML = `
+      <input type="text" id="chatInput" placeholder="Ask your PDF... (e.g., key findings, dates, definitions)" />
+      <button class="btn" onclick="chatWithPdf()">Ask</button>
+      <select id="kSelect">
+        <option value="3">Top 3 sentences</option>
+        <option value="5">Top 5 sentences</option>
+        <option value="8">Top 8 sentences</option>
+      </select>
+      <button class="btn-ghost" onclick="toggleCitationsView()">Toggle #Score</button>
+    `;
+  }
+
+  if (tab === "translate") {
+    const options = LANGS.map(l => `<option value="${l.code}">${l.name}</option>`).join("");
+    controls.innerHTML = `
+      <select id="langSelect">${options}</select>
+      <button class="btn" onclick="translateText()">Translate PDF</button>
+      <button class="btn-ghost" onclick="copyOutput()">Copy Output</button>
+    `;
+  }
+
+  if (tab === "search") {
+    controls.innerHTML = `
+      <input type="text" id="searchInput" placeholder="Search keyword or phrase..." />
+      <button class="btn" onclick="searchPdf()">Search & Highlight</button>
+      <button class="btn-ghost" onclick="clearHighlights()">Clear Highlights</button>
+    `;
+  }
+
+  setOutput("Ready to " + tab + " your PDF...");
+  document.getElementById('metaLine').innerText = "";
+}
+
+/* ================== FILE & EXTRACTION ================== */
+document.getElementById('fileInput').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async function () {
+    const typedArray = new Uint8Array(this.result);
+    const pdf = await pdfjsLib.getDocument(typedArray).promise;
+
+    PAGE_TEXTS = [];
+    let allText = '';
+    for (let i=1; i<=pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const text = await page.getTextContent();
+      let pageText = '';
+      text.items.forEach(s => pageText += s.str + ' ');
+      pageText = normalizeSpaces(pageText);
+      PAGE_TEXTS.push(pageText);
+      allText += pageText + "\n";
+    }
+    pdfText = normalizeSpaces(allText);
+
+    // Build per-page sentences + sentence->page index for citations
+    buildSentenceIndex();
+
+    // Prepare Chat vectors (TF-IDF over all sentences)
+    prepareVectors(pdfText);
+
+    document.getElementById('output').innerText = pdfText.slice(0, 1400) + (pdfText.length>1400?'...':'');
+    document.getElementById('metaLine').innerText = `Pages: ${PAGE_TEXTS.length} • Characters: ${pdfText.length.toLocaleString()}`;
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+function normalizeSpaces(s){ return s.replace(/\s+/g,' ').trim(); }
+
+/* ================== SUMMARIZE & OUTLINE (with CITATIONS) ================== */
+function splitSentences(text){ return text.split(/(?<=[\.!?])\s+/).map(s=>s.trim()).filter(Boolean); }
+
+function summarizeText() {
+  if (!pdfText) return alert("Upload a PDF first!");
+  const sents = SENTENCES.length ? SENTENCES : splitSentences(pdfText);
+  const n = parseInt(document.getElementById('sumCount')?.value || "5", 10);
+
+  // Heuristic: first 2 + sentences with cue words
+  const keywords = ['conclusion','summary','results','we found','in this paper','we propose','therefore','overall','we conclude','objective','method','findings'];
+  const picked = [];
+  for (let s of sents) {
+    if (picked.length < Math.min(2, n)) { picked.push(s); continue; }
+    if (keywords.some(k=>s.toLowerCase().includes(k))) picked.push(s);
+    if (picked.length >= n) break;
+  }
+  if (picked.length < n) picked.push(...sents.slice(picked.length, n));
+
+  // Attach citations
+  const lines = [];
+  CURRENT_CITATIONS = [];
+  picked.forEach(s=>{
+    const page = pageForSentence(s);
+    if (page) CURRENT_CITATIONS.push({ sentence: s, page });
+    const cite = page ? ` (p. ${page})` : '';
+    lines.push("• " + s + cite);
+  });
+
+  setHTML(`<strong>Summary:</strong><br><br>${lines.join("<br><br>")}`);
+  document.getElementById('metaLine').innerText = `Sentences: ${n} • With citations`;
+}
+
+function outlineText(){
+  if (!pdfText) return alert("Upload a PDF first!");
+  const lines = pdfText.split(/\n+/)
+    .map(l => l.trim())
+    .filter(l => l && l.length>5)
+    .slice(0, 20)
+    .map(l => "• " + l.replace(/[:\-–•]+$/,''));
+  CURRENT_CITATIONS = []; // outline doesn't carry citations
+  setOutput("Outline:\n" + lines.join("\n"));
+}
+
+/* ========== CITATION INDEXING HELPERS ========== */
+function normalizeSentenceKey(s){
+  return s
+    .toLowerCase()
+    .replace(/\s+/g,' ')
+    .replace(/^[“"'\-–•\s]+|[”"'\-–•\s]+$/g,'')
+    .replace(/[.;:,]+$/,'')
+    .trim();
+}
+function buildSentenceIndex(){
+  SENTENCE_PAGE_MAP = {};
+  PAGE_SENTENCES = PAGE_TEXTS.map((txt, idx) => {
+     const sents = splitSentences(txt);
+     sents.forEach(s => {
+       const key = normalizeSentenceKey(s);
+       if (key && !SENTENCE_PAGE_MAP[key]) SENTENCE_PAGE_MAP[key] = idx+1; // 1-based
+     });
+     return sents;
+  });
+  // Global sentence list for chat/search
+  SENTENCES = splitSentences(pdfText);
+}
+function pageForSentence(sentence){
+  const key = normalizeSentenceKey(sentence);
+  if (SENTENCE_PAGE_MAP[key]) return SENTENCE_PAGE_MAP[key];
+  // fallback: use a prefix probe
+  const probe = key.slice(0, Math.min(60, key.length));
+  for (let i=0;i<PAGE_TEXTS.length;i++){
+    if (PAGE_TEXTS[i].toLowerCase().includes(probe)) return i+1;
+  }
+  return null;
+}
+
+/* ================== CHAT (TF-IDF + Cosine Similarity + CITATIONS) ================== */
+const STOPWORDS = new Set(("a,an,the,of,and,to,in,on,for,is,are,was,were,be,with,as,by,or,that,from,at,this,these,those,it,its,into,than,then,so,if,not,can,may,might,should,would,could,about,over,under,between,within,which,who,whom,what,when,where,why,how,there,here,have,has,had,do,does,did"
+).split(','));
+
+function tokenize(str){
+  return str.toLowerCase()
+    .replace(/[^a-z0-9\s]/g,' ')
+    .split(/\s+/)
+    .filter(w=>w && !STOPWORDS.has(w));
+}
+function termFreq(tokens){
+  const tf = {};
+  tokens.forEach(t => tf[t] = (tf[t]||0)+1);
+  const max = Math.max(...Object.values(tf));
+  for (const k in tf) tf[k] = tf[k]/max;
+  return tf;
+}
+function computeIDF(docs){
+  const df = {};
+  docs.forEach(tokens=>{
+    const seen = new Set(tokens);
+    seen.forEach(t => df[t] = (df[t]||0)+1);
+  });
+  const N = docs.length;
+  const idf = {};
+  for (const t in df) idf[t] = Math.log( (N + 1) / (df[t] + 1) ) + 1;
+  return idf;
+}
+function vecFromTF(tf, idf){
+  const v = {};
+  for (const t in tf){ if(idf[t]) v[t] = tf[t]*idf[t]; }
+  return v;
+}
+function cosine(a,b){
+  let dot=0, na=0, nb=0;
+  for (const k in a){ if(b[k]) dot += a[k]*b[k]; na += a[k]*a[k]; }
+  for (const k in b){ nb += b[k]*b[k]; }
+  if(!na || !nb) return 0;
+  return dot / (Math.sqrt(na)*Math.sqrt(nb));
+}
+function prepareVectors(text){
+  SENTENCES = splitSentences(text);
+  const docs = SENTENCES.map(s => tokenize(s));
+  IDF = computeIDF(docs);
+  SENT_VECS = docs.map(tokens => vecFromTF(termFreq(tokens), IDF));
+}
+
+let showScores = true;
+function toggleCitationsView(){ showScores = !showScores; }
+
+function chatWithPdf(){
+  if (!pdfText) return alert("Upload a PDF first!");
+  const q = (document.getElementById('chatInput')?.value || "").trim();
+  if (!q) return;
+  if (!SENTENCES.length) prepareVectors(pdfText);
+
+  const qTokens = tokenize(q);
+  const qVec = vecFromTF(termFreq(qTokens), IDF);
+  const sims = SENT_VECS.map((v,i) => ({i, score: cosine(qVec, v)}));
+  sims.sort((a,b)=> b.score - a.score);
+
+  const k = parseInt(document.getElementById('kSelect')?.value || "3", 10);
+  const top = sims.filter(x=>x.score>0).slice(0,k);
+
+  if (!top.length){
+    setOutput(`You: ${q}\n\n(No strong matches found. Try more specific keywords.)`);
+    CURRENT_CITATIONS = [];
+    return;
+  }
+
+  CURRENT_CITATIONS = [];
+  const marked = top.map(({i, score})=>{
+    let sent = SENTENCES[i];
+    // highlight query terms
+    qTokens.forEach(t=>{
+      const rx = new RegExp(`\\b${escapeRegExp(t)}\\b`,'gi');
+      sent = sent.replace(rx, m=>`<mark>${m}</mark>`);
+    });
+    // citation page
+    const page = pageForSentence(SENTENCES[i]);
+    if (page) CURRENT_CITATIONS.push({ sentence: SENTENCES[i], page });
+    const citePage = page ? ` (p. ${page})` : '';
+    const scoreText = showScores ? ` <span style="opacity:.6">#${i+1} • ${score.toFixed(2)}</span>` : '';
+    return `• ${sent}${citePage}.${scoreText}`;
+  });
+
+  const answer = marked.join("<br><br>");
+  setHTML(`You: ${q}<br><br>Answer (most relevant):<br>${answer}`);
+  document.getElementById('metaLine').innerText = `Matched: ${top.length}/${SENTENCES.length} • Citations attached`;
+}
+
+/* ================== SEARCH (highlight + page) ================== */
+function searchPdf() {
+  if (!pdfText) return alert("Upload a PDF first!");
+  const q = (document.getElementById('searchInput')?.value || "").trim();
+  if (!q) return;
+
+  const safeQ = escapeRegExp(q);
+  const regex = new RegExp(`(${safeQ})`, "gi");
+
+  const sentences = SENTENCES.length ? SENTENCES : splitSentences(pdfText);
+  let matchCount = 0;
+  const blocks = [];
+  CURRENT_CITATIONS = [];
+  sentences.forEach((s,idx) => {
+    if (regex.test(s)) {
+      matchCount++;
+      const highlighted = s.replace(regex, '<mark>$1</mark>');
+      const page = pageForSentence(s);
+      if (page) CURRENT_CITATIONS.push({ sentence: s, page });
+      const cite = page ? ` (p. ${page})` : '';
+      blocks.push(`• ${highlighted}${cite}. <span style="opacity:.6">#${idx+1}</span>`);
+      regex.lastIndex = 0;
+    }
+  });
+
+  if (!blocks.length) {
+    setOutput("No results found.");
+    document.getElementById('metaLine').innerText = "";
+    return;
+  }
+  setHTML(blocks.join("<br><br>"));
+  document.getElementById('metaLine').innerText = `Matches: ${matchCount.toLocaleString()} • Citations attached`;
+}
+function clearHighlights() {
+  if (!pdfText) return;
+  document.getElementById('output').innerText = pdfText.slice(0, 1400) + (pdfText.length>1400?'...':'');
+  document.getElementById('metaLine').innerText = "";
+  CURRENT_CITATIONS = [];
+}
+
+/* ================== TRANSLATE (real API, chunked) ================== */
+async function translateText() {
+  if (!pdfText) return alert("Upload a PDF first!");
+  const target = document.getElementById("langSelect").value;
+  const langName = (LANGS.find(l=>l.code===target)?.name || target);
+
+  const chunks = chunkString(pdfText, 4500);
+  setOutput(`Translating to ${langName}...\n\nChunks: ${chunks.length}`);
+  let translatedParts = [];
+
+  for (let i=0; i<chunks.length; i++) {
+    document.getElementById('metaLine').innerText = `Translating chunk ${i+1}/${chunks.length}...`;
+    const part = await translateOne(chunks[i], target);
+    if (part === null) {
+      setOutput("Translation failed (all endpoints unreachable).");
+      document.getElementById('metaLine').innerText = "";
+      return;
+    }
+    translatedParts.push(part);
+  }
+
+  const finalText = translatedParts.join(' ');
+  setOutput(finalText);
+  document.getElementById('metaLine').innerText = `Translated ${pdfText.length.toLocaleString()} chars → ${langName}`;
+  CURRENT_CITATIONS = []; // translation doesn't carry page citations
+}
+
+async function translateOne(text, target){
+  for (const url of TRANSLATE_ENDPOINTS) {
+    try {
+      const res = await fetch(url, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
+        body: JSON.stringify({ q: text, source: 'auto', target, format:'text' })
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data && typeof data.translatedText === 'string') return data.translatedText;
+    } catch (e) { /* try next endpoint */ }
+  }
+  return null;
+}
+
+/* ================== DOWNLOADS, CITATION EXPORT & UTILS ================== */
+function clearOutput(){ document.getElementById('output').innerText=""; document.getElementById('metaLine').innerText=""; }
+function copyOutput(){ navigator.clipboard.writeText(getOutputText()); }
+function downloadTxt(){
+  const text = getOutputText();
+  const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  triggerDownload(url, 'output.txt');
+}
+function downloadPdf(){
+  const text = getOutputText();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'pt', format:'a4' });
+  const margin = 40, maxWidth = 515;
+  const lines = doc.splitTextToSize(text, maxWidth);
+  let y = margin;
+  lines.forEach(line => {
+    if (y > 780) { doc.addPage(); y = margin; }
+    doc.text(line, margin, y); y += 16;
+  });
+  doc.save('output.pdf');
+}
+function exportCitations(){
+  if (!CURRENT_CITATIONS.length) { alert("No citations available. Run Summarize, Chat or Search."); return; }
+  // Deduplicate by sentence+page
+  const seen = new Set();
+  const lines = [];
+  CURRENT_CITATIONS.forEach(c=>{
+    const key = normalizeSentenceKey(c.sentence) + '|' + c.page;
+    if (seen.has(key)) return;
+    seen.add(key);
+    lines.push(`p.${c.page}: ${c.sentence}`);
+  });
+  const blob = new Blob([lines.join('\n')], {type:'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  triggerDownload(url, 'citations.txt');
+}
+function getOutputText(){ const out = document.getElementById('output'); return out.innerText || out.textContent || ""; }
+function triggerDownload(url, filename){
+  const a = document.createElement('a'); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
+function escapeRegExp(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function setOutput(text){
+  const out = document.getElementById('output'); out.innerText = text;
+  document.getElementById('metaLine').innerText = "";
+}
+function setHTML(html){
+  const out = document.getElementById('output'); out.innerHTML = html;
+}
+function chunkString(str, size){
+  const chunks = []; for (let i=0; i<str.length; i+=size) chunks.push(str.slice(i, i+size)); return chunks;
+}
+
+/* Auto summary demo (optional, keeps previous behavior) */
+setInterval(()=>{ if(activeTab==="summarize" && pdfText) summarizeText(); }, 6000);
+</script>
+</body>
+</html>
