@@ -49,8 +49,13 @@ cd AI-Legal-Assistant
 🌐 Real-time collaboration (like Google Docs, but AI-powered)
 
 
-🤝 Contributors
+## 🤝 Contributors
 
-👤 Jay R Umap – Project Lead
-👥 Team of 4 – Central India Hackathon 2025
+- **Digvijay Thakur** - Team Lead / Frontend Lead
+- **Nikhil Ghatole** - Backend Lead
+- **Jay Umap** - AI/ML Lead
 
+
+
+## 💬 Feedback & Contributions
+We welcome contributions and suggestions from the community! If you have an idea, issue, or improvement, feel free to open an issue or submit a pull request. Let’s make legal clarity accessible for everyone.
