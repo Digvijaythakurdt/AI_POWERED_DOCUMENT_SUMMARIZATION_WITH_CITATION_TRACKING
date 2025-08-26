@@ -17,7 +17,6 @@ Unlike general-purpose chatbots, this assistant is built with **chunking, citati
 ## 🛠️ Tech Stack  
 
 - **Frontend:** HTML, CSS, JavaScript  
-- **Backend:** FastAPI (Python)  
 - **File Handling:** PyPDF2 / docx2txt  
 - **Extras:** Sentence-BERT (for embedding & citation mapping)  
 
@@ -51,9 +50,9 @@ cd AI-Legal-Assistant
 
 ## 🤝 Contributors
 
-- **Digvijay Thakur** - Team Lead / Frontend Lead
-- **Nikhil Ghatole** - Backend Lead
-- **Jay Umap** - AI/ML Lead
+- **Digvijay Thakur** 
+- **Nikhil Ghatole** 
+- **Jay Umap**
 
 
 
